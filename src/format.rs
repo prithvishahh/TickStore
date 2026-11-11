@@ -10,7 +10,9 @@
 //! A chunk is one symbol and one stream (trades or quotes). The symbol is not
 //! stored in the file; the directory name and the catalog are the dictionary.
 
-use crate::codec::{decode_i64, decode_u64, encode_i64, encode_u64};
+use crate::codec::{
+    decode_i64, decode_u64, encode_i64, encode_i64_scan, encode_u64, encode_u64_scan,
+};
 use crate::{Error, Result};
 use crc32fast::Hasher;
 
@@ -98,9 +100,9 @@ pub fn encode_trade_chunk(cols: &TradeColumns) -> Result<Vec<u8>> {
     }
     let size: Vec<u64> = cols.size.iter().map(|&s| u64::from(s)).collect();
     let side: Vec<u64> = cols.side.iter().map(|&s| u64::from(s)).collect();
-    let (ts_c, ts_b) = encode_i64(&cols.ts);
-    let (px_c, px_b) = encode_i64(&cols.price);
-    let (sz_c, sz_b) = encode_u64(&size);
+    let (ts_c, ts_b) = encode_i64_scan(&cols.ts);
+    let (px_c, px_b) = encode_i64_scan(&cols.price);
+    let (sz_c, sz_b) = encode_u64_scan(&size);
     let (sd_c, sd_b) = encode_u64(&side);
     finish(
         KIND_TRADE,
@@ -234,18 +236,26 @@ fn finish(
 }
 
 pub fn parse_chunk(file: &[u8]) -> Result<ChunkHeader> {
+    parse_chunk_inner(file, true)
+}
+
+/// Parse a chunk, optionally skipping the CRC. Query paths checksum an
+/// immutable file once and then reuse the header parse.
+pub fn parse_chunk_inner(file: &[u8], check_crc: bool) -> Result<ChunkHeader> {
     if file.len() < HEADER_LEN + 4 {
         return Err(Error::corrupt("chunk shorter than a header"));
     }
     let (body, crc_bytes) = file.split_at(file.len() - 4);
-    let expect = u32::from_le_bytes(crc_bytes.try_into().unwrap());
-    let mut hasher = Hasher::new();
-    hasher.update(body);
-    let got = hasher.finalize();
-    if got != expect {
-        return Err(Error::corrupt(format!(
-            "crc mismatch: stored {expect:#x}, computed {got:#x}"
-        )));
+    if check_crc {
+        let expect = u32::from_le_bytes(crc_bytes.try_into().unwrap());
+        let mut hasher = Hasher::new();
+        hasher.update(body);
+        let got = hasher.finalize();
+        if got != expect {
+            return Err(Error::corrupt(format!(
+                "crc mismatch: stored {expect:#x}, computed {got:#x}"
+            )));
+        }
     }
     if &file[0..4] != MAGIC {
         return Err(Error::corrupt("chunk magic is not TCHK"));
@@ -300,7 +310,11 @@ pub fn parse_chunk(file: &[u8]) -> Result<ChunkHeader> {
     })
 }
 
-fn column<'a>(file: &'a [u8], header: &ChunkHeader, id: u8) -> Result<(u8, &'a [u8])> {
+pub(crate) fn column_slice<'a>(
+    file: &'a [u8],
+    header: &ChunkHeader,
+    id: u8,
+) -> Result<(u8, &'a [u8])> {
     let col = header.columns.iter().find(|c| c.id == id).ok_or_else(|| {
         Error::corrupt(format!("chunk is missing the {} column", column_name(id)))
     })?;
@@ -310,12 +324,12 @@ fn column<'a>(file: &'a [u8], header: &ChunkHeader, id: u8) -> Result<(u8, &'a [
 }
 
 pub fn decode_i64_column(file: &[u8], header: &ChunkHeader, id: u8) -> Result<Vec<i64>> {
-    let (codec, bytes) = column(file, header, id)?;
+    let (codec, bytes) = column_slice(file, header, id)?;
     decode_i64(codec, bytes, header.rows as usize)
 }
 
 pub fn decode_u64_column(file: &[u8], header: &ChunkHeader, id: u8) -> Result<Vec<u64>> {
-    let (codec, bytes) = column(file, header, id)?;
+    let (codec, bytes) = column_slice(file, header, id)?;
     decode_u64(codec, bytes, header.rows as usize)
 }
 

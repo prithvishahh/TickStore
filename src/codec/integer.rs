@@ -7,8 +7,8 @@
 //! byte-aligned. Deltas use wrapping arithmetic, so every `i64` sequence
 //! round-trips, including the `i64::MIN` / `i64::MAX` boundary.
 
-use super::bitstream::BitReader;
-use super::bitstream::BitWriter;
+use super::bitstream::{BitReader, BitWriter};
+use super::unpack::unpack_msb;
 use crate::cursor::{as_u32_len, push_i64, push_u16, push_u32, push_u64, R};
 use crate::{Error, Result};
 
@@ -70,6 +70,75 @@ pub fn encode_delta(values: &[i64]) -> Vec<u8> {
 
 pub fn decode_delta(data: &[u8], n: usize) -> Result<Vec<i64>> {
     decode_residual(data, n, false)
+}
+
+/// VWAP numerator and volume from a delta-coded price column and aligned sizes.
+///
+/// Prices are integrated in registers. The caller does not need a price vector.
+pub fn notional_from_delta(data: &[u8], sizes: &[u32]) -> Result<(i128, u64)> {
+    let n = sizes.len();
+    let mut r = R::new(data);
+    let count = r.u32()? as usize;
+    if count != n {
+        return Err(Error::corrupt("delta block count does not match row count"));
+    }
+    if n == 0 {
+        return Ok((0, 0));
+    }
+    let mut prev = r.i64()?;
+    let mut notional = i128::from(prev) * i128::from(sizes[0]);
+    let mut volume = u64::from(sizes[0]);
+    let residual_count = r.u32()? as usize;
+    if residual_count != n - 1 {
+        return Err(Error::corrupt("mini-block residual count mismatch"));
+    }
+    let mut idx = 1usize;
+    let mut tmp = [0u64; MINI_BLOCK];
+    while idx < n {
+        let len = r.u16()? as usize;
+        if len == 0 || len > MINI_BLOCK || idx + len > n {
+            return Err(Error::corrupt("mini-block length is invalid"));
+        }
+        let bit_width = r.u8()?;
+        let min = r.i64()?;
+        if bit_width > 64 {
+            return Err(Error::corrupt("mini-block bit width > 64"));
+        }
+        if bit_width == 0 {
+            for _ in 0..len {
+                prev = prev.wrapping_add(min);
+                notional += i128::from(prev) * i128::from(sizes[idx]);
+                volume += u64::from(sizes[idx]);
+                idx += 1;
+            }
+            continue;
+        }
+        if bit_width == 64 {
+            for _ in 0..len {
+                let stored = r.u64()? as i128;
+                let delta = (i128::from(min) + stored) as i64;
+                prev = prev.wrapping_add(delta);
+                notional += i128::from(prev) * i128::from(sizes[idx]);
+                volume += u64::from(sizes[idx]);
+                idx += 1;
+            }
+            continue;
+        }
+        let nbytes = (len * bit_width as usize).div_ceil(8);
+        let packed = r.take(nbytes)?;
+        unpack_msb(packed, u32::from(bit_width), len, &mut tmp)?;
+        for stored in tmp.into_iter().take(len) {
+            let delta = (i128::from(min) + stored as i128) as i64;
+            prev = prev.wrapping_add(delta);
+            notional += i128::from(prev) * i128::from(sizes[idx]);
+            volume += u64::from(sizes[idx]);
+            idx += 1;
+        }
+    }
+    if r.remaining() != 0 {
+        return Err(Error::corrupt("trailing bytes after delta column"));
+    }
+    Ok((notional, volume))
 }
 
 pub fn encode_dod(values: &[i64]) -> Vec<u8> {
@@ -180,7 +249,7 @@ fn decode_i64_blocks_rest(r: &mut R<'_>, expect: usize) -> Result<Vec<i64>> {
     let mut out = Vec::with_capacity(count);
     while out.len() < count {
         let n = r.u16()? as usize;
-        if n == 0 || out.len() + n > count {
+        if n == 0 || n > MINI_BLOCK || out.len() + n > count {
             return Err(Error::corrupt("mini-block length is invalid"));
         }
         let bit_width = r.u8()?;
@@ -201,10 +270,10 @@ fn decode_i64_blocks_rest(r: &mut R<'_>, expect: usize) -> Result<Vec<i64>> {
         }
         let nbytes = (n * bit_width as usize).div_ceil(8);
         let packed = r.take(nbytes)?;
-        let mut br = BitReader::new(packed);
-        for _ in 0..n {
-            let stored = br.read_bits(u32::from(bit_width))? as i128;
-            out.push((i128::from(min) + stored) as i64);
+        let mut tmp = [0u64; MINI_BLOCK];
+        unpack_msb(packed, u32::from(bit_width), n, &mut tmp)?;
+        for stored in tmp.into_iter().take(n) {
+            out.push((i128::from(min) + stored as i128) as i64);
         }
     }
     Ok(out)
@@ -252,7 +321,7 @@ pub fn decode_for_u64(data: &[u8], n: usize) -> Result<Vec<u64>> {
     let mut out = Vec::with_capacity(count);
     while out.len() < count {
         let len = r.u16()? as usize;
-        if len == 0 || out.len() + len > count {
+        if len == 0 || len > MINI_BLOCK || out.len() + len > count {
             return Err(Error::corrupt("for block length is invalid"));
         }
         let bit_width = r.u8()?;
@@ -273,9 +342,9 @@ pub fn decode_for_u64(data: &[u8], n: usize) -> Result<Vec<u64>> {
         }
         let nbytes = (len * bit_width as usize).div_ceil(8);
         let packed = r.take(nbytes)?;
-        let mut br = BitReader::new(packed);
-        for _ in 0..len {
-            let stored = br.read_bits(u32::from(bit_width))?;
+        let mut tmp = [0u64; MINI_BLOCK];
+        unpack_msb(packed, u32::from(bit_width), len, &mut tmp)?;
+        for stored in tmp.into_iter().take(len) {
             out.push(min.wrapping_add(stored));
         }
     }
