@@ -1,5 +1,7 @@
 use tickstore::reference::{asof_checksum, asof_join, ohlcv, ohlcv_checksum, vwap};
-use tickstore::{generate, Bar, GenConfig, Options, Quote, Side, TickStore, Trade};
+use tickstore::{
+    generate, Bar, CrashPoint, GenConfig, Options, Quote, Side, SyncPolicy, TickStore, Trade,
+};
 
 struct Tmp {
     path: std::path::PathBuf,
@@ -47,6 +49,7 @@ fn queries_match_the_reference_across_chunk_boundaries() {
         Options {
             price_scale: 10_000,
             chunk_rows: 4,
+            ..Options::default()
         },
     )
     .unwrap();
@@ -184,6 +187,7 @@ fn reopen_preserves_a_generated_tape() {
             Options {
                 price_scale: ds.scale,
                 chunk_rows: 64,
+                ..Options::default()
             },
         )
         .unwrap();
@@ -255,6 +259,72 @@ fn rejects_unsorted_appends_and_bad_symbols() {
     let mut reopened = TickStore::open(&tmp.path).unwrap();
     let got = reopened.scan_trades("AAPL", 0, 100).unwrap();
     assert_eq!(got.len(), 2);
+}
+
+#[test]
+fn wal_recovers_a_torn_tail_without_duplicating() {
+    let tmp = Tmp::new();
+    let trades: Vec<_> = (0..5).map(|i| trade(i, 10, 1)).collect();
+    let quotes = vec![Quote {
+        ts_ns: 0,
+        bid_ticks: 9,
+        ask_ticks: 11,
+        bid_size: 1,
+        ask_size: 1,
+    }];
+    {
+        let mut store = TickStore::create(
+            &tmp.path,
+            Options {
+                chunk_rows: 100,
+                sync: SyncPolicy::OnAppend,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        store.append_trades("AAPL", &trades).unwrap();
+        store.append_quotes("AAPL", &quotes).unwrap();
+        store.abandon();
+    }
+    {
+        use std::io::Write;
+        let mut wal = std::fs::OpenOptions::new()
+            .append(true)
+            .open(tmp.path.join("wal.bin"))
+            .unwrap();
+        wal.write_all(&[9, 9, 9, 9]).unwrap();
+    }
+    {
+        let mut store = TickStore::open(&tmp.path).unwrap();
+        assert_eq!(store.scan_trades("AAPL", 0, 100).unwrap(), trades);
+        let joined = store.asof_join("AAPL", 0, 100).unwrap();
+        assert!(joined.iter().all(|row| row.bid_ticks == Some(9)));
+    }
+    let mut store = TickStore::open(&tmp.path).unwrap();
+    assert_eq!(store.scan_trades("AAPL", 0, 100).unwrap(), trades);
+}
+
+#[test]
+fn crash_after_chunk_file_replays_each_row_once() {
+    let tmp = Tmp::new();
+    let trades: Vec<_> = (0..10).map(|i| trade(i * 10, 5, 2)).collect();
+    {
+        let mut store = TickStore::create(
+            &tmp.path,
+            Options {
+                chunk_rows: 4,
+                sync: SyncPolicy::OnSeal,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        store.arm_crash(CrashPoint::AfterChunkFile);
+        let err = store.append_trades("AAPL", &trades).unwrap_err();
+        assert!(err.to_string().contains("simulated crash"));
+    }
+    let mut store = TickStore::open(&tmp.path).unwrap();
+    assert_eq!(store.scan_trades("AAPL", 0, 1_000).unwrap(), trades);
+    assert_eq!(store.count_trades("AAPL", 0, 1_000).unwrap(), 10);
 }
 
 #[test]

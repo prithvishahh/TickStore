@@ -6,14 +6,18 @@
 //! and aggregate one chunk at a time.
 
 use crate::catalog::{self, Catalog, ChunkMeta, SymbolEntry};
+use crate::codec::{self, notional_from_delta};
 use crate::format::{
-    self, decode_i64_column, decode_quote_chunk, decode_trade_chunk, encode_quote_chunk,
-    encode_trade_chunk, parse_chunk, QuoteColumns, TradeColumns, COL_TS,
+    self, decode_i64_column, decode_quote_chunk, decode_trade_chunk, decode_u64_column,
+    encode_quote_chunk, encode_trade_chunk, parse_chunk, parse_chunk_inner, QuoteColumns,
+    TradeColumns, COL_PRICE, COL_SIZE, COL_TS,
 };
 use crate::types::{bucket_start, AsofRow, Bar, Quote, Side, Trade, Vwap};
+use crate::wal::{self, SyncPolicy, Wal, WalRecord};
 use crate::{Error, Result};
+use memmap2::Mmap;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
@@ -21,6 +25,7 @@ use std::path::{Path, PathBuf};
 pub struct Options {
     pub price_scale: i64,
     pub chunk_rows: usize,
+    pub sync: SyncPolicy,
 }
 
 impl Default for Options {
@@ -28,8 +33,29 @@ impl Default for Options {
         Self {
             price_scale: 10_000,
             chunk_rows: 16_384,
+            sync: SyncPolicy::Never,
         }
     }
+}
+
+/// Test hook. The store returns an error at this point and does not finish the commit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CrashPoint {
+    /// The chunk file is durable. The catalog has not been updated.
+    AfterChunkFile,
+}
+
+struct Batch<T> {
+    seq: u64,
+    /// Rows of `seq` sealed before this in-memory suffix.
+    already_sealed: u32,
+    rows: Vec<T>,
+}
+
+struct Piece<T> {
+    seq: u64,
+    already_sealed_before: u32,
+    rows: Vec<T>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -62,10 +88,8 @@ pub struct StoreStats {
 }
 
 struct SymbolBuf {
-    trades: Vec<Trade>,
-    quotes: Vec<Quote>,
-    last_trade: Option<i64>,
-    last_quote: Option<i64>,
+    trades: Vec<Batch<Trade>>,
+    quotes: Vec<Batch<Quote>>,
 }
 
 enum Stream {
@@ -88,6 +112,15 @@ pub struct TickStore {
     buffers: HashMap<String, SymbolBuf>,
     chunk_rows: usize,
     catalog_dirty: bool,
+    /// Chunk paths whose CRC has already been checked in this process.
+    verified: HashSet<PathBuf>,
+    /// Immutable chunk mappings kept for the life of the store.
+    maps: HashMap<PathBuf, Mmap>,
+    wal: Wal,
+    next_seq: u64,
+    sync: SyncPolicy,
+    skip_flush: bool,
+    crash: Option<CrashPoint>,
 }
 
 impl TickStore {
@@ -105,27 +138,58 @@ impl TickStore {
             )));
         }
         fs::create_dir_all(root)?;
-        let catalog = Catalog::new(opts.price_scale, opts.chunk_rows as u32);
+        let catalog = Catalog::new(opts.price_scale, opts.chunk_rows as u32, opts.sync);
         catalog.save(root)?;
+        let wal = Wal::create(root)?;
         Ok(Self {
             root: root.to_path_buf(),
             chunk_rows: opts.chunk_rows,
             catalog,
             buffers: HashMap::new(),
             catalog_dirty: false,
+            verified: HashSet::new(),
+            maps: HashMap::new(),
+            wal,
+            next_seq: 1,
+            sync: opts.sync,
+            skip_flush: false,
+            crash: None,
         })
     }
 
     pub fn open(root: &Path) -> Result<Self> {
         let catalog = Catalog::load(root)?;
         let chunk_rows = catalog.chunk_rows as usize;
-        Ok(Self {
+        let sync = catalog.sync;
+        let wal = Wal::open(root)?;
+        let mut store = Self {
             root: root.to_path_buf(),
             chunk_rows,
             catalog,
             buffers: HashMap::new(),
             catalog_dirty: false,
-        })
+            verified: HashSet::new(),
+            maps: HashMap::new(),
+            wal,
+            next_seq: 1,
+            sync,
+            skip_flush: false,
+            crash: None,
+        };
+        store.remove_orphans()?;
+        store.replay_wal()?;
+        store.compact_wal()?;
+        Ok(store)
+    }
+
+    /// Stop at `point` on the next seal. Drop will not flush the tail.
+    pub fn arm_crash(&mut self, point: CrashPoint) {
+        self.crash = Some(point);
+    }
+
+    /// Drop the store without sealing the tail. Recovery reads the log.
+    pub fn abandon(mut self) {
+        self.skip_flush = true;
     }
 
     pub fn price_scale(&self) -> i64 {
@@ -163,9 +227,22 @@ impl TickStore {
             self.seal_quotes(&s, true)?;
         }
         if self.catalog_dirty {
-            self.catalog.save(&self.root)?;
-            self.catalog_dirty = false;
+            self.persist_catalog()?;
         }
+        self.compact_wal()?;
+        Ok(())
+    }
+
+    fn compact_wal(&mut self) -> Result<()> {
+        let records = self.wal.replay()?;
+        let kept: Vec<WalRecord> = records
+            .into_iter()
+            .filter(|rec| {
+                let (seq, rows) = self.symbol_wal_cursor(&rec.symbol, rec);
+                !record_is_sealed(rec, seq, rows)
+            })
+            .collect();
+        self.wal.rewrite(&kept, self.sync == SyncPolicy::OnAppend)?;
         Ok(())
     }
 
@@ -187,21 +264,21 @@ impl TickStore {
             }
             prev = Some(t.ts_ns);
         }
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        self.wal
+            .append_trades(seq, symbol, trades, self.sync == SyncPolicy::OnAppend)?;
         self.ensure_buf(symbol);
-        let mut offset = 0;
-        while offset < trades.len() {
-            let len = self.buffers.get(symbol).unwrap().trades.len();
-            let room = self.chunk_rows - len;
-            let n = room.min(trades.len() - offset);
-            {
-                let buf = self.buffers.get_mut(symbol).unwrap();
-                buf.trades.extend_from_slice(&trades[offset..offset + n]);
-                buf.last_trade = Some(trades[offset + n - 1].ts_ns);
-            }
-            offset += n;
-            if self.buffers.get(symbol).unwrap().trades.len() >= self.chunk_rows {
-                self.seal_trades(symbol, false)?;
-            }
+        {
+            let buf = self.buffers.get_mut(symbol).unwrap();
+            buf.trades.push(Batch {
+                seq,
+                already_sealed: 0,
+                rows: trades.to_vec(),
+            });
+        }
+        while self.batch_rows(symbol, Stream::Trades) >= self.chunk_rows {
+            self.seal_trades(symbol, false)?;
         }
         Ok(())
     }
@@ -224,21 +301,21 @@ impl TickStore {
             }
             prev = Some(q.ts_ns);
         }
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        self.wal
+            .append_quotes(seq, symbol, quotes, self.sync == SyncPolicy::OnAppend)?;
         self.ensure_buf(symbol);
-        let mut offset = 0;
-        while offset < quotes.len() {
-            let len = self.buffers.get(symbol).unwrap().quotes.len();
-            let room = self.chunk_rows - len;
-            let n = room.min(quotes.len() - offset);
-            {
-                let buf = self.buffers.get_mut(symbol).unwrap();
-                buf.quotes.extend_from_slice(&quotes[offset..offset + n]);
-                buf.last_quote = Some(quotes[offset + n - 1].ts_ns);
-            }
-            offset += n;
-            if self.buffers.get(symbol).unwrap().quotes.len() >= self.chunk_rows {
-                self.seal_quotes(symbol, false)?;
-            }
+        {
+            let buf = self.buffers.get_mut(symbol).unwrap();
+            buf.quotes.push(Batch {
+                seq,
+                already_sealed: 0,
+                rows: quotes.to_vec(),
+            });
+        }
+        while self.batch_rows(symbol, Stream::Quotes) >= self.chunk_rows {
+            self.seal_quotes(symbol, false)?;
         }
         Ok(())
     }
@@ -313,30 +390,31 @@ impl TickStore {
         let mut out = Vec::new();
         let mut cur: Option<BarAcc> = None;
         for meta in &metas {
-            let cols = self.load_trades(symbol, meta)?;
             let full = meta.min_ts >= start && meta.max_ts < end;
-            for i in 0..cols.ts.len() {
-                let ts = cols.ts[i];
+            let (ts, price, size) = self.load_agg_cols(symbol, meta, true)?;
+            let n = price.len();
+            for i in 0..n {
                 if !full {
-                    if ts < start {
+                    let t = ts[i];
+                    if t < start {
                         continue;
                     }
-                    if ts >= end {
+                    if t >= end {
                         break;
                     }
                 }
-                let b = bucket_start(ts, interval_ns);
-                let price = cols.price[i];
-                let size = cols.size[i];
+                let b = bucket_start(ts[i], interval_ns);
+                let px = price[i];
+                let sz = size[i];
                 let same = cur.as_ref().is_some_and(|acc| acc.bucket == b);
                 if same {
-                    cur.as_mut().unwrap().update(price, size)?;
+                    cur.as_mut().unwrap().update(px, sz)?;
                     continue;
                 }
                 if let Some(acc) = cur.take() {
                     out.push(acc.finish());
                 }
-                cur = Some(BarAcc::new(b, price, size));
+                cur = Some(BarAcc::new(b, px, sz));
             }
         }
         if let Some(acc) = cur {
@@ -350,24 +428,29 @@ impl TickStore {
         let metas = self.trade_metas(symbol, start, end)?;
         let mut out = Vwap::default();
         for meta in &metas {
-            let cols = self.load_trades(symbol, meta)?;
             let full = meta.min_ts >= start && meta.max_ts < end;
-            for i in 0..cols.ts.len() {
-                let ts = cols.ts[i];
-                if !full {
-                    if ts < start {
-                        continue;
-                    }
-                    if ts >= end {
-                        break;
-                    }
+            if full {
+                if let Some((notional, volume, trades)) = self.try_fused_vwap(symbol, meta)? {
+                    out.notional_ticks += notional;
+                    out.volume += volume;
+                    out.trades += trades;
+                    continue;
                 }
-                add_print(
-                    &mut out.notional_ticks,
-                    &mut out.volume,
-                    cols.price[i],
-                    cols.size[i],
-                )?;
+            }
+            let (ts, price, size) = self.load_agg_cols(symbol, meta, !full)?;
+            if full {
+                accumulate_vwap(&mut out, &price, &size);
+                continue;
+            }
+            for i in 0..price.len() {
+                let t = ts[i];
+                if t < start {
+                    continue;
+                }
+                if t >= end {
+                    break;
+                }
+                add_print(&mut out.notional_ticks, &mut out.volume, price[i], size[i])?;
                 out.trades += 1;
             }
         }
@@ -458,6 +541,82 @@ impl TickStore {
             .ok_or_else(|| Error::NotFound(symbol.to_string()))
     }
 
+    fn try_fused_vwap(
+        &mut self,
+        symbol: &str,
+        meta: &ChunkMeta,
+    ) -> Result<Option<(i128, u64, u64)>> {
+        let path = self.chunk_path(symbol, Stream::Trades, meta.id);
+        let check = !self.verified.contains(&path);
+        let prepared = {
+            let mmap = self.cached_map(&path)?;
+            let header = parse_chunk_inner(mmap, check)?;
+            let (codec, bytes) = format::column_slice(mmap, &header, COL_PRICE)?;
+            let (inner, owned) = codec::unwrap_zstd(codec, bytes)?;
+            if inner != codec::CODEC_DELTA {
+                return Ok(None);
+            }
+            let price = owned.unwrap_or_else(|| bytes.to_vec());
+            let size_u = decode_u64_column(mmap, &header, COL_SIZE)?;
+            let mut sizes = Vec::with_capacity(size_u.len());
+            for s in size_u {
+                sizes.push(
+                    u32::try_from(s).map_err(|_| Error::corrupt("size does not fit in u32"))?,
+                );
+            }
+            (price, sizes)
+        };
+        if check {
+            self.verified.insert(path);
+        }
+        let (notional, volume) = notional_from_delta(&prepared.0, &prepared.1)?;
+        let trades = prepared.1.len() as u64;
+        Ok(Some((notional, volume, trades)))
+    }
+
+    fn cached_map(&mut self, path: &Path) -> Result<&Mmap> {
+        if !self.maps.contains_key(path) {
+            let mmap = map_file(path)?;
+            self.maps.insert(path.to_path_buf(), mmap);
+        }
+        Ok(self.maps.get(path).expect("map inserted"))
+    }
+
+    /// Price and size, plus timestamps when the caller has to filter or bucket.
+    fn load_agg_cols(
+        &mut self,
+        symbol: &str,
+        meta: &ChunkMeta,
+        want_ts: bool,
+    ) -> Result<(Vec<i64>, Vec<i64>, Vec<u32>)> {
+        let path = self.chunk_path(symbol, Stream::Trades, meta.id);
+        let check = !self.verified.contains(&path);
+        let header = {
+            let mmap = self.cached_map(&path)?;
+            parse_chunk_inner(mmap, check)?
+        };
+        if check {
+            self.verified.insert(path.clone());
+        }
+        let mmap = self.cached_map(&path)?;
+        let rows = header.rows as usize;
+        let ts = if want_ts {
+            decode_i64_column(mmap, &header, COL_TS)?
+        } else {
+            Vec::new()
+        };
+        let price = decode_i64_column(mmap, &header, COL_PRICE)?;
+        let size_u = decode_u64_column(mmap, &header, COL_SIZE)?;
+        if price.len() != rows || size_u.len() != rows || (want_ts && ts.len() != rows) {
+            return Err(Error::corrupt("aggregated columns have different lengths"));
+        }
+        let mut size = Vec::with_capacity(rows);
+        for s in size_u {
+            size.push(u32::try_from(s).map_err(|_| Error::corrupt("size does not fit in u32"))?);
+        }
+        Ok((ts, price, size))
+    }
+
     fn load_trades(&self, symbol: &str, meta: &ChunkMeta) -> Result<TradeColumns> {
         let path = self.chunk_path(symbol, Stream::Trades, meta.id);
         let mmap = map_file(&path)?;
@@ -495,23 +654,11 @@ impl TickStore {
         if self.buffers.contains_key(symbol) {
             return;
         }
-        let last_trade = self
-            .catalog
-            .symbols
-            .get(symbol)
-            .and_then(|s| s.trades.last().map(|c| c.max_ts));
-        let last_quote = self
-            .catalog
-            .symbols
-            .get(symbol)
-            .and_then(|s| s.quotes.last().map(|c| c.max_ts));
         self.buffers.insert(
             symbol.to_string(),
             SymbolBuf {
                 trades: Vec::new(),
                 quotes: Vec::new(),
-                last_trade,
-                last_quote,
             },
         );
     }
@@ -519,8 +666,14 @@ impl TickStore {
     fn last_ts(&self, symbol: &str, stream: Stream) -> Option<i64> {
         if let Some(buf) = self.buffers.get(symbol) {
             let cached = match stream {
-                Stream::Trades => buf.last_trade,
-                Stream::Quotes => buf.last_quote,
+                Stream::Trades => buf
+                    .trades
+                    .last()
+                    .and_then(|b| b.rows.last().map(|t| t.ts_ns)),
+                Stream::Quotes => buf
+                    .quotes
+                    .last()
+                    .and_then(|b| b.rows.last().map(|q| q.ts_ns)),
             };
             if cached.is_some() {
                 return cached;
@@ -533,15 +686,22 @@ impl TickStore {
         }
     }
 
+    fn batch_rows(&self, symbol: &str, stream: Stream) -> usize {
+        let Some(buf) = self.buffers.get(symbol) else {
+            return 0;
+        };
+        match stream {
+            Stream::Trades => buf.trades.iter().map(|b| b.rows.len()).sum(),
+            Stream::Quotes => buf.quotes.iter().map(|b| b.rows.len()).sum(),
+        }
+    }
+
     fn seal_trades(&mut self, symbol: &str, force: bool) -> Result<()> {
-        let len = self
-            .buffers
-            .get(symbol)
-            .map(|b| b.trades.len())
-            .unwrap_or(0);
+        let len = self.batch_rows(symbol, Stream::Trades);
         if len == 0 || (!force && len < self.chunk_rows) {
             return Ok(());
         }
+        let n = if force { len } else { self.chunk_rows };
         let id = self
             .catalog
             .symbols
@@ -550,21 +710,30 @@ impl TickStore {
             .unwrap_or(0);
         let path = self.chunk_path(symbol, Stream::Trades, id);
         let scale = self.catalog.price_scale;
-        let trades = {
+        let pieces = {
             let buf = self.buffers.get_mut(symbol).unwrap();
-            std::mem::take(&mut buf.trades)
+            take_front(&mut buf.trades, n)
         };
+        let trades = flatten_pieces(&pieces);
         let encoded = match encode_taken_trades(scale, &trades) {
             Ok(bytes) => bytes,
             Err(e) => {
-                self.buffers.get_mut(symbol).unwrap().trades = trades;
+                let buf = self.buffers.get_mut(symbol).unwrap();
+                restore_front(&mut buf.trades, pieces);
                 return Err(e);
             }
         };
-        if let Err(e) = atomic_write(&path, &encoded) {
-            self.buffers.get_mut(symbol).unwrap().trades = trades;
+        if let Err(e) = atomic_write(&path, &encoded, self.wants_durable_files()) {
+            let buf = self.buffers.get_mut(symbol).unwrap();
+            restore_front(&mut buf.trades, pieces);
             return Err(e);
         }
+        if self.crash == Some(CrashPoint::AfterChunkFile) {
+            self.crash = None;
+            self.skip_flush = true;
+            return Err(Error::bad("simulated crash after chunk file"));
+        }
+        self.note_sealed(symbol, Stream::Trades, &pieces);
         let meta = ChunkMeta {
             id,
             min_ts: trades[0].ts_ns,
@@ -578,21 +747,16 @@ impl TickStore {
             .or_default()
             .trades
             .push(meta);
-        self.catalog_dirty = true;
-        self.catalog.save(&self.root)?;
-        self.catalog_dirty = false;
+        self.persist_catalog()?;
         Ok(())
     }
 
     fn seal_quotes(&mut self, symbol: &str, force: bool) -> Result<()> {
-        let len = self
-            .buffers
-            .get(symbol)
-            .map(|b| b.quotes.len())
-            .unwrap_or(0);
+        let len = self.batch_rows(symbol, Stream::Quotes);
         if len == 0 || (!force && len < self.chunk_rows) {
             return Ok(());
         }
+        let n = if force { len } else { self.chunk_rows };
         let id = self
             .catalog
             .symbols
@@ -601,21 +765,30 @@ impl TickStore {
             .unwrap_or(0);
         let path = self.chunk_path(symbol, Stream::Quotes, id);
         let scale = self.catalog.price_scale;
-        let quotes = {
+        let pieces = {
             let buf = self.buffers.get_mut(symbol).unwrap();
-            std::mem::take(&mut buf.quotes)
+            take_front(&mut buf.quotes, n)
         };
+        let quotes = flatten_pieces(&pieces);
         let encoded = match encode_taken_quotes(scale, &quotes) {
             Ok(bytes) => bytes,
             Err(e) => {
-                self.buffers.get_mut(symbol).unwrap().quotes = quotes;
+                let buf = self.buffers.get_mut(symbol).unwrap();
+                restore_front(&mut buf.quotes, pieces);
                 return Err(e);
             }
         };
-        if let Err(e) = atomic_write(&path, &encoded) {
-            self.buffers.get_mut(symbol).unwrap().quotes = quotes;
+        if let Err(e) = atomic_write(&path, &encoded, self.wants_durable_files()) {
+            let buf = self.buffers.get_mut(symbol).unwrap();
+            restore_front(&mut buf.quotes, pieces);
             return Err(e);
         }
+        if self.crash == Some(CrashPoint::AfterChunkFile) {
+            self.crash = None;
+            self.skip_flush = true;
+            return Err(Error::bad("simulated crash after chunk file"));
+        }
+        self.note_sealed(symbol, Stream::Quotes, &pieces);
         let meta = ChunkMeta {
             id,
             min_ts: quotes[0].ts_ns,
@@ -629,9 +802,155 @@ impl TickStore {
             .or_default()
             .quotes
             .push(meta);
-        self.catalog_dirty = true;
+        self.persist_catalog()?;
+        Ok(())
+    }
+
+    fn wants_durable_files(&self) -> bool {
+        matches!(self.sync, SyncPolicy::OnAppend | SyncPolicy::OnSeal)
+    }
+
+    fn note_sealed<T>(&mut self, symbol: &str, stream: Stream, pieces: &[Piece<T>]) {
+        let entry = self.catalog.symbols.entry(symbol.to_string()).or_default();
+        for piece in pieces {
+            let through = piece.already_sealed_before + piece.rows.len() as u32;
+            match stream {
+                Stream::Trades => {
+                    entry.trade_wal_seq = piece.seq;
+                    entry.trade_wal_rows = through;
+                }
+                Stream::Quotes => {
+                    entry.quote_wal_seq = piece.seq;
+                    entry.quote_wal_rows = through;
+                }
+            }
+        }
+    }
+
+    fn persist_catalog(&mut self) -> Result<()> {
+        let durable = self.wants_durable_files();
         self.catalog.save(&self.root)?;
+        if durable {
+            File::open(Catalog::path(&self.root))?.sync_all()?;
+            wal::sync_dir(&self.root)?;
+        }
         self.catalog_dirty = false;
+        Ok(())
+    }
+
+    fn replay_wal(&mut self) -> Result<()> {
+        let records = self.wal.replay()?;
+        if let Some(max) = records.iter().map(|r| r.seq).max() {
+            self.next_seq = max + 1;
+        }
+        for rec in records {
+            let (commit_seq, commit_rows) = self.symbol_wal_cursor(&rec.symbol, &rec);
+            self.install_replayed(rec, commit_seq, commit_rows)?;
+        }
+        Ok(())
+    }
+
+    fn symbol_wal_cursor(&self, symbol: &str, rec: &WalRecord) -> (u64, usize) {
+        let Some(entry) = self.catalog.symbols.get(symbol) else {
+            return (0, 0);
+        };
+        if !rec.trades.is_empty() {
+            (entry.trade_wal_seq, entry.trade_wal_rows as usize)
+        } else {
+            (entry.quote_wal_seq, entry.quote_wal_rows as usize)
+        }
+    }
+
+    fn install_replayed(
+        &mut self,
+        rec: WalRecord,
+        commit_seq: u64,
+        commit_rows: usize,
+    ) -> Result<()> {
+        if rec.seq < commit_seq {
+            return Ok(());
+        }
+        let skip = if rec.seq == commit_seq {
+            commit_rows
+        } else {
+            0
+        };
+        self.ensure_buf(&rec.symbol);
+        if !rec.trades.is_empty() {
+            if skip >= rec.trades.len() {
+                return Ok(());
+            }
+            let rows = rec.trades[skip..].to_vec();
+            let buf = self.buffers.get_mut(&rec.symbol).unwrap();
+            buf.trades.push(Batch {
+                seq: rec.seq,
+                already_sealed: skip as u32,
+                rows,
+            });
+        }
+        if !rec.quotes.is_empty() {
+            if skip >= rec.quotes.len() {
+                return Ok(());
+            }
+            let rows = rec.quotes[skip..].to_vec();
+            let buf = self.buffers.get_mut(&rec.symbol).unwrap();
+            buf.quotes.push(Batch {
+                seq: rec.seq,
+                already_sealed: skip as u32,
+                rows,
+            });
+        }
+        Ok(())
+    }
+
+    fn remove_orphans(&self) -> Result<()> {
+        let chunks = self.root.join("chunks");
+        if !chunks.exists() {
+            return Ok(());
+        }
+        for sym_ent in fs::read_dir(&chunks)? {
+            let sym_ent = sym_ent?;
+            if !sym_ent.file_type()?.is_dir() {
+                continue;
+            }
+            let sym_name = sym_ent.file_name();
+            let sym = sym_name.to_string_lossy();
+            let entry = self.catalog.symbols.get(sym.as_ref());
+            for (stream, known) in [
+                (
+                    "trades",
+                    entry.map(|e| e.trades.iter().map(|c| c.id).collect::<HashSet<_>>()),
+                ),
+                (
+                    "quotes",
+                    entry.map(|e| e.quotes.iter().map(|c| c.id).collect::<HashSet<_>>()),
+                ),
+            ] {
+                let dir = sym_ent.path().join(stream);
+                if !dir.exists() {
+                    continue;
+                }
+                for file in fs::read_dir(&dir)? {
+                    let file = file?;
+                    let name = file.file_name();
+                    let name = name.to_string_lossy();
+                    if name.ends_with(".tmp") {
+                        let _ = fs::remove_file(file.path());
+                        continue;
+                    }
+                    let Some(id) = name
+                        .strip_suffix(".tchk")
+                        .and_then(|s| s.parse::<u32>().ok())
+                    else {
+                        continue;
+                    };
+                    let keep = known.as_ref().is_some_and(|ids| ids.contains(&id));
+                    if !keep {
+                        let _ = fs::remove_file(file.path());
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -646,7 +965,9 @@ impl TickStore {
 
 impl Drop for TickStore {
     fn drop(&mut self) {
-        let _ = self.flush();
+        if !self.skip_flush {
+            let _ = self.flush();
+        }
     }
 }
 
@@ -788,6 +1109,33 @@ impl BarAcc {
     }
 }
 
+fn accumulate_vwap(out: &mut Vwap, price: &[i64], size: &[u32]) {
+    debug_assert_eq!(price.len(), size.len());
+    let mut notional = 0i128;
+    let mut volume = 0u64;
+    let n = price.len();
+    let mut i = 0;
+    while i + 4 <= n {
+        notional += i128::from(price[i]) * i128::from(size[i]);
+        notional += i128::from(price[i + 1]) * i128::from(size[i + 1]);
+        notional += i128::from(price[i + 2]) * i128::from(size[i + 2]);
+        notional += i128::from(price[i + 3]) * i128::from(size[i + 3]);
+        volume += u64::from(size[i]);
+        volume += u64::from(size[i + 1]);
+        volume += u64::from(size[i + 2]);
+        volume += u64::from(size[i + 3]);
+        i += 4;
+    }
+    while i < n {
+        notional += i128::from(price[i]) * i128::from(size[i]);
+        volume += u64::from(size[i]);
+        i += 1;
+    }
+    out.notional_ticks += notional;
+    out.volume += volume;
+    out.trades += n as u64;
+}
+
 fn add_print(notional: &mut i128, volume: &mut u64, price: i64, size: u32) -> Result<()> {
     let prod = i128::from(price) * i128::from(size);
     *notional = notional
@@ -799,7 +1147,7 @@ fn add_print(notional: &mut i128, volume: &mut u64, price: i64, size: u32) -> Re
     Ok(())
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
+fn atomic_write(path: &Path, bytes: &[u8], sync: bool) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -807,9 +1155,80 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     {
         let mut f = File::create(&tmp)?;
         std::io::Write::write_all(&mut f, bytes)?;
+        if sync {
+            f.sync_all()?;
+        }
     }
     fs::rename(&tmp, path)?;
+    if sync {
+        wal::sync_dir(path)?;
+    }
     Ok(())
+}
+
+fn take_front<T>(batches: &mut Vec<Batch<T>>, n: usize) -> Vec<Piece<T>> {
+    let mut left = n;
+    let mut out = Vec::new();
+    while left > 0 && !batches.is_empty() {
+        let batch = &mut batches[0];
+        let k = left.min(batch.rows.len());
+        let rows = batch.rows.drain(..k).collect();
+        let before = batch.already_sealed;
+        batch.already_sealed += k as u32;
+        let seq = batch.seq;
+        let empty = batch.rows.is_empty();
+        if empty {
+            batches.remove(0);
+        }
+        out.push(Piece {
+            seq,
+            already_sealed_before: before,
+            rows,
+        });
+        left -= k;
+    }
+    out
+}
+
+fn restore_front<T>(batches: &mut Vec<Batch<T>>, mut pieces: Vec<Piece<T>>) {
+    while let Some(piece) = pieces.pop() {
+        if let Some(front) = batches.first_mut() {
+            if front.seq == piece.seq {
+                let mut rows = piece.rows;
+                rows.append(&mut front.rows);
+                front.rows = rows;
+                front.already_sealed = piece.already_sealed_before;
+                continue;
+            }
+        }
+        batches.insert(
+            0,
+            Batch {
+                seq: piece.seq,
+                already_sealed: piece.already_sealed_before,
+                rows: piece.rows,
+            },
+        );
+    }
+}
+
+fn record_is_sealed(rec: &WalRecord, commit_seq: u64, commit_rows: usize) -> bool {
+    if rec.seq < commit_seq {
+        return true;
+    }
+    if rec.seq > commit_seq {
+        return false;
+    }
+    let n = if !rec.trades.is_empty() {
+        rec.trades.len()
+    } else {
+        rec.quotes.len()
+    };
+    commit_rows >= n
+}
+
+fn flatten_pieces<T: Clone>(pieces: &[Piece<T>]) -> Vec<T> {
+    pieces.iter().flat_map(|p| p.rows.clone()).collect()
 }
 
 fn map_file(path: &Path) -> Result<memmap2::Mmap> {
@@ -843,7 +1262,7 @@ fn accumulate_columns(
         let stat = into.entry(key).or_default();
         stat.rows += u64::from(header.rows);
         stat.payload_bytes += u64::from(col.len);
-        let codec = crate::codec::codec_name(col.codec).to_string();
+        let codec = crate::codec::codec_label(col.codec);
         let use_ = stat.codecs.entry(codec).or_default();
         use_.chunks += 1;
         use_.bytes += u64::from(col.len);

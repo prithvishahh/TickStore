@@ -4,6 +4,7 @@
 //! The file is replaced with `rename`, so readers never see a half-written
 //! catalog. It is not fsynced; a power loss can drop the last rename.
 
+use crate::wal::SyncPolicy;
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -28,6 +29,17 @@ pub struct SymbolEntry {
     pub trades: Vec<ChunkMeta>,
     #[serde(default)]
     pub quotes: Vec<ChunkMeta>,
+    /// Trade-log sequence covered by sealed trade chunks, and how many
+    /// leading rows of that sequence are included. Quote appends use their
+    /// own cursor so sealing one stream cannot drop the other's tail.
+    #[serde(default)]
+    pub trade_wal_seq: u64,
+    #[serde(default)]
+    pub trade_wal_rows: u32,
+    #[serde(default)]
+    pub quote_wal_seq: u64,
+    #[serde(default)]
+    pub quote_wal_rows: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,15 +47,18 @@ pub struct Catalog {
     pub version: u32,
     pub price_scale: i64,
     pub chunk_rows: u32,
+    #[serde(default)]
+    pub sync: SyncPolicy,
     pub symbols: BTreeMap<String, SymbolEntry>,
 }
 
 impl Catalog {
-    pub fn new(price_scale: i64, chunk_rows: u32) -> Self {
+    pub fn new(price_scale: i64, chunk_rows: u32, sync: SyncPolicy) -> Self {
         Self {
             version: CATALOG_VERSION,
             price_scale,
             chunk_rows,
+            sync,
             symbols: BTreeMap::new(),
         }
     }

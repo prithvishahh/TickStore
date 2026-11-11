@@ -178,6 +178,7 @@ fn run() -> Result<()> {
                 Options {
                     price_scale: meta.scale,
                     chunk_rows,
+                    ..Options::default()
                 },
             )?;
             for s in &series {

@@ -390,6 +390,7 @@ fn time_ingests(cfg: &BenchConfig, ds: &Dataset) -> Result<(Vec<f64>, u64)> {
                 Options {
                     price_scale: ds.scale,
                     chunk_rows: cfg.chunk_rows,
+                    ..Options::default()
                 },
             )?;
             for s in &ds.symbols {
@@ -490,7 +491,7 @@ fn profile_i64(values: &[i64]) -> Value {
     let (chosen, chosen_bytes) = codec::encode_i64(values);
     rows.push(json!({
         "name": "selected",
-        "codec": codec::codec_name(chosen),
+        "codec": codec::codec_label(chosen),
         "bytes": chosen_bytes.len(),
         "bytes_per_value": chosen_bytes.len() as f64 / values.len() as f64,
     }));
@@ -536,7 +537,7 @@ fn profile_u64(values: &[u64]) -> Value {
     let (chosen, chosen_bytes) = codec::encode_u64(values);
     rows.push(json!({
         "name": "selected",
-        "codec": codec::codec_name(chosen),
+        "codec": codec::codec_label(chosen),
         "bytes": chosen_bytes.len(),
         "bytes_per_value": chosen_bytes.len() as f64 / values.len() as f64,
     }));

@@ -20,12 +20,14 @@ pub mod reference;
 pub mod rng;
 pub mod store;
 pub mod types;
+pub mod wal;
 
 mod cursor;
 
 pub use error::{Error, Result};
 pub use generate::{generate, Dataset, GenConfig, SymbolSeries};
-pub use store::{Options, StoreStats, TickStore};
+pub use store::{CrashPoint, Options, StoreStats, TickStore};
 pub use types::{
     format_ticks, parse_interval, parse_ticks, AsofRow, Bar, Quote, Side, Trade, Vwap,
 };
+pub use wal::SyncPolicy;
