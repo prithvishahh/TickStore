@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="460" viewBox="0 0 880 460">
+<rect width="100%" height="100%" fill="#f7f4ee"/>
+<text x="64" y="30" font-family="Georgia, serif" font-size="20" fill="#1d1a16">Bytes per trade</text>
+<text x="18" y="211.0" transform="rotate(-90 18,211.0)" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#5c564e">bytes</text>
+<line x1="64" y1="374" x2="856" y2="374" stroke="#1d1a16" stroke-width="1"/>
+<text x="143.2" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">Packed</text>
+<text x="301.6" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">CSV</text>
+<text x="460.0" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">Parquet</text>
+<text x="618.4000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">Parquet+symbol</text>
+<text x="776.8000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">TickStore</text>
+<rect x="103.6" y="202.6" width="64.9" height="171.4" fill="#0f6e56" rx="2"/>
+<rect x="262.0" y="72.1" width="64.9" height="301.9" fill="#0f6e56" rx="2"/>
+<rect x="420.4" y="325.0" width="64.9" height="49.0" fill="#0f6e56" rx="2"/>
+<rect x="578.8" y="325.0" width="64.9" height="49.0" fill="#0f6e56" rx="2"/>
+<rect x="737.2" y="324.9" width="64.9" height="49.1" fill="#0f6e56" rx="2"/>
+<rect x="64" y="432" width="12" height="12" fill="#0f6e56"/>
+<text x="82" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">bytes / trade</text>
+</svg>

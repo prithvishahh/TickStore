@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="460" viewBox="0 0 880 460">
+<rect width="100%" height="100%" fill="#f7f4ee"/>
+<text x="64" y="30" font-family="Georgia, serif" font-size="20" fill="#1d1a16">Codec size on the focus symbol</text>
+<text x="18" y="211.0" transform="rotate(-90 18,211.0)" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#5c564e">bytes per value</text>
+<line x1="64" y1="374" x2="856" y2="374" stroke="#1d1a16" stroke-width="1"/>
+<text x="143.2" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">raw_i64</text>
+<text x="301.6" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">delta_bitpack</text>
+<text x="460.0" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">dod_bitpack</text>
+<text x="618.4000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">delta_varint</text>
+<text x="776.8000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">gorilla_dod</text>
+<rect x="90.4" y="72.1" width="43.3" height="301.9" fill="#0f6e56" rx="2"/>
+<rect x="248.8" y="232.6" width="43.3" height="141.4" fill="#0f6e56" rx="2"/>
+<rect x="407.2" y="228.6" width="43.3" height="145.4" fill="#0f6e56" rx="2"/>
+<rect x="565.6" y="213.4" width="43.3" height="160.6" fill="#0f6e56" rx="2"/>
+<rect x="724.0" y="199.5" width="43.3" height="174.5" fill="#0f6e56" rx="2"/>
+<rect x="64" y="432" width="12" height="12" fill="#0f6e56"/>
+<text x="82" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">timestamps</text>
+<rect x="143.2" y="72.1" width="43.3" height="301.9" fill="#c47b2b" rx="2"/>
+<rect x="301.6" y="323.2" width="43.3" height="50.8" fill="#c47b2b" rx="2"/>
+<rect x="460.0" y="320.0" width="43.3" height="54.0" fill="#c47b2b" rx="2"/>
+<rect x="618.4" y="311.6" width="43.3" height="62.4" fill="#c47b2b" rx="2"/>
+<rect x="776.8" y="322.5" width="43.3" height="51.5" fill="#c47b2b" rx="2"/>
+<rect x="214" y="432" width="12" height="12" fill="#c47b2b"/>
+<text x="232" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">prices</text>
+</svg>

@@ -1,0 +1,504 @@
+{
+  "engine": {
+    "codecs": {
+      "price_f64_xor": {
+        "bytes": 842527,
+        "bytes_per_value": 4.107303209200064
+      },
+      "prices": [
+        {
+          "bytes": 1641032,
+          "bytes_per_value": 8.0,
+          "decode_ns": 1.0045922322051002,
+          "encode_ns": 1.1580371376060918,
+          "name": "raw_i64"
+        },
+        {
+          "bytes": 276283,
+          "bytes_per_value": 1.3468744058616773,
+          "decode_ns": 5.403887309936674,
+          "encode_ns": 4.192186380277777,
+          "name": "delta_bitpack"
+        },
+        {
+          "bytes": 293339,
+          "bytes_per_value": 1.4300220836644257,
+          "decode_ns": 5.485630993179901,
+          "encode_ns": 4.608734016155688,
+          "name": "dod_bitpack"
+        },
+        {
+          "bytes": 339116,
+          "bytes_per_value": 1.653184093911636,
+          "decode_ns": 5.571030912255215,
+          "encode_ns": 5.153908028606389,
+          "name": "delta_varint"
+        },
+        {
+          "bytes": 280125,
+          "bytes_per_value": 1.3656040832841774,
+          "decode_ns": 7.957690038951099,
+          "encode_ns": 9.741075128333877,
+          "name": "gorilla_dod"
+        },
+        {
+          "bytes": 276283,
+          "bytes_per_value": 1.3468744058616773,
+          "codec": "delta_bitpack",
+          "name": "selected"
+        }
+      ],
+      "selector_slack": 0.05,
+      "sizes": [
+        {
+          "bytes": 1641032,
+          "bytes_per_value": 8.0,
+          "decode_ns": 1.0092137142968571,
+          "encode_ns": 1.1433683194477622,
+          "name": "raw_u64"
+        },
+        {
+          "bytes": 296522,
+          "bytes_per_value": 1.4455391485357993,
+          "decode_ns": 4.619390724860941,
+          "encode_ns": 3.5510239897820397,
+          "name": "for_bitpack"
+        },
+        {
+          "bytes": 311389,
+          "bytes_per_value": 1.5180154926899658,
+          "decode_ns": 5.922941173602952,
+          "encode_ns": 4.615671114274432,
+          "name": "varint"
+        },
+        {
+          "bytes": 294034,
+          "bytes_per_value": 1.4334101955354923,
+          "decode_ns": 4.327311106669462,
+          "encode_ns": 11.963715515602377,
+          "name": "dictionary"
+        },
+        {
+          "bytes": 2067556,
+          "bytes_per_value": 10.079296442726285,
+          "decode_ns": 2.7927596780562474,
+          "encode_ns": 5.0033686119466285,
+          "name": "rle"
+        },
+        {
+          "bytes": 296522,
+          "bytes_per_value": 1.4455391485357993,
+          "codec": "for_bitpack",
+          "name": "selected"
+        }
+      ],
+      "timestamps": [
+        {
+          "bytes": 1641032,
+          "bytes_per_value": 8.0,
+          "decode_ns": 1.0507193034626992,
+          "encode_ns": 1.8668155160898752,
+          "name": "raw_i64"
+        },
+        {
+          "bytes": 768605,
+          "bytes_per_value": 3.7469348556274342,
+          "decode_ns": 7.861160538002915,
+          "encode_ns": 5.0305710065373495,
+          "name": "delta_bitpack"
+        },
+        {
+          "bytes": 790525,
+          "bytes_per_value": 3.853794441546539,
+          "decode_ns": 7.997650259105246,
+          "encode_ns": 5.231425103227725,
+          "name": "dod_bitpack"
+        },
+        {
+          "bytes": 873296,
+          "bytes_per_value": 4.257301502956676,
+          "decode_ns": 5.976395341468052,
+          "encode_ns": 6.101472731793164,
+          "name": "delta_varint"
+        },
+        {
+          "bytes": 948714,
+          "bytes_per_value": 4.62496282826904,
+          "decode_ns": 10.328783350964516,
+          "encode_ns": 8.428154965899507,
+          "name": "gorilla_dod"
+        },
+        {
+          "bytes": 768605,
+          "bytes_per_value": 3.7469348556274342,
+          "codec": "delta_bitpack",
+          "name": "selected"
+        }
+      ]
+    },
+    "csv": {
+      "queries": {
+        "asof_range": {
+          "first_ms": 214.320491,
+          "median_ms": 201.34903100000002
+        },
+        "count_range": {
+          "first_ms": 72.293162,
+          "median_ms": 67.99090600000001
+        },
+        "ohlcv_1m": {
+          "first_ms": 74.96839399999999,
+          "median_ms": 76.354232
+        },
+        "ohlcv_1s": {
+          "first_ms": 76.29992100000001,
+          "median_ms": 75.758437
+        },
+        "scan_range": {
+          "first_ms": 62.034618,
+          "median_ms": 60.58689
+        },
+        "vwap": {
+          "first_ms": 72.82346000000001,
+          "median_ms": 73.170615
+        }
+      },
+      "quote_bytes": 102691119,
+      "rows_per_s": 4307291.242772376,
+      "trade_bytes": 42264127,
+      "write_median_s": 0.696493418,
+      "write_samples_s": [
+        0.71168509,
+        0.693740996,
+        0.688755116,
+        0.702353698,
+        0.696493418
+      ]
+    },
+    "dataset": {
+      "chunk_rows": 16384,
+      "data_end_ns": 1704229199996773240,
+      "focus_quote_rows": 410258,
+      "focus_symbol": "AAPL",
+      "focus_trade_rows": 205129,
+      "generate_s": 0.311832867,
+      "interval_1m_ns": 60000000000,
+      "interval_1s_ns": 1000000000,
+      "quote_rows": 2000000,
+      "range_end_ns": 1704206700000000000,
+      "range_start_ns": 1704206100000000000,
+      "scale": 10000,
+      "seed": 7,
+      "session_end_ns": 1704229200000000000,
+      "session_start_ns": 1704205800000000000,
+      "symbols": [
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "AMZN",
+        "META",
+        "SPY",
+        "TSLA",
+        "AMD"
+      ],
+      "trade_rows": 1000000
+    },
+    "machine": {
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor",
+      "os": "linux",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+    },
+    "packed": {
+      "quote_bytes": 80000000,
+      "quote_file_bytes": 80000096,
+      "trade_bytes": 24000000,
+      "trade_file_bytes": 24000096
+    },
+    "reference": {
+      "asof_full": {
+        "bid_sum": "383010558100",
+        "nulls": 0,
+        "rows": 205129
+      },
+      "asof_range": {
+        "bid_sum": "28076038200",
+        "nulls": 0,
+        "rows": 15073
+      },
+      "full_count": 205129,
+      "full_price_sum": "383023612400",
+      "full_size_sum": 45089076,
+      "ohlcv_1m": {
+        "bars": 390,
+        "close_sum": "729937200",
+        "open_sum": "729945900",
+        "volume": 45089076
+      },
+      "ohlcv_1s": {
+        "bars": 23341,
+        "close_sum": "43686388500",
+        "open_sum": "43686366800",
+        "volume": 45089076
+      },
+      "range_count": 15073,
+      "range_price_sum": "28077003500",
+      "range_size_sum": 3300450,
+      "vwap_notional": "84194008008400",
+      "vwap_trades": 205129,
+      "vwap_volume": 45089076
+    },
+    "tickstore": {
+      "disk_bytes": 21140480,
+      "ingest_median_s": 0.697460935,
+      "ingest_samples_s": [
+        0.677147658,
+        0.680854093,
+        0.705983162,
+        0.699668865,
+        0.697460935
+      ],
+      "queries": {
+        "asof_full": {
+          "first_ms": 28.379830000000002,
+          "median_ms": 22.794181000000002
+        },
+        "asof_range": {
+          "first_ms": 2.8541450000000004,
+          "median_ms": 2.7505379999999997
+        },
+        "count_full": {
+          "first_ms": 0.000807,
+          "median_ms": 0.000101
+        },
+        "count_range": {
+          "first_ms": 0.462391,
+          "median_ms": 0.30548800000000004
+        },
+        "ohlcv_1m": {
+          "first_ms": 5.318622,
+          "median_ms": 5.620894000000001
+        },
+        "ohlcv_1s": {
+          "first_ms": 5.791295,
+          "median_ms": 5.845369000000001
+        },
+        "scan_full": {
+          "first_ms": 6.052632,
+          "median_ms": 5.302946
+        },
+        "scan_range": {
+          "first_ms": 0.8469909999999999,
+          "median_ms": 0.793177
+        },
+        "vwap": {
+          "first_ms": 5.06485,
+          "median_ms": 4.93462
+        }
+      },
+      "rows_per_s": 4301316.17335672,
+      "stats": {
+        "catalog_bytes": 33728,
+        "chunk_rows": 16384,
+        "columns": {
+          "quote.ask": {
+            "codecs": {
+              "delta_bitpack": {
+                "bytes": 1543114,
+                "chunks": 64
+              },
+              "gorilla_dod": {
+                "bytes": 1028213,
+                "chunks": 62
+              }
+            },
+            "payload_bytes": 2571327,
+            "rows": 2000000
+          },
+          "quote.ask_size": {
+            "codecs": {
+              "dictionary": {
+                "bytes": 758697,
+                "chunks": 126
+              }
+            },
+            "payload_bytes": 758697,
+            "rows": 2000000
+          },
+          "quote.bid": {
+            "codecs": {
+              "delta_bitpack": {
+                "bytes": 1794621,
+                "chunks": 76
+              },
+              "gorilla_dod": {
+                "bytes": 920211,
+                "chunks": 50
+              }
+            },
+            "payload_bytes": 2714832,
+            "rows": 2000000
+          },
+          "quote.bid_size": {
+            "codecs": {
+              "dictionary": {
+                "bytes": 758697,
+                "chunks": 126
+              }
+            },
+            "payload_bytes": 758697,
+            "rows": 2000000
+          },
+          "quote.ts": {
+            "codecs": {
+              "delta_bitpack": {
+                "bytes": 7403333,
+                "chunks": 126
+              }
+            },
+            "payload_bytes": 7403333,
+            "rows": 2000000
+          },
+          "trade.price": {
+            "codecs": {
+              "delta_bitpack": {
+                "bytes": 1473780,
+                "chunks": 65
+              }
+            },
+            "payload_bytes": 1473780,
+            "rows": 1000000
+          },
+          "trade.side": {
+            "codecs": {
+              "dictionary": {
+                "bytes": 126369,
+                "chunks": 65
+              }
+            },
+            "payload_bytes": 126369,
+            "rows": 1000000
+          },
+          "trade.size": {
+            "codecs": {
+              "for_bitpack": {
+                "bytes": 1445915,
+                "chunks": 65
+              }
+            },
+            "payload_bytes": 1445915,
+            "rows": 1000000
+          },
+          "trade.ts": {
+            "codecs": {
+              "delta_bitpack": {
+                "bytes": 3826574,
+                "chunks": 65
+              }
+            },
+            "payload_bytes": 3826574,
+            "rows": 1000000
+          }
+        },
+        "price_scale": 10000,
+        "quote_chunks": 126,
+        "quote_file_bytes": 14225534,
+        "quote_rows": 2000000,
+        "symbols": 8,
+        "total_bytes": 21140480,
+        "trade_chunks": 65,
+        "trade_file_bytes": 6881218,
+        "trade_rows": 1000000
+      }
+    }
+  },
+  "comparison": {
+    "pyarrow": "26.0.1",
+    "duckdb": "2.0.0",
+    "parquet_trade_bytes": 6864484,
+    "parquet_quote_bytes": 14658436,
+    "parquet_trade_nosym_bytes": 6861265,
+    "parquet_quote_nosym_bytes": 14652095,
+    "parquet_trade_nosym_columns": {
+      "ts_ns": 4492542,
+      "price_ticks": 1294518,
+      "size": 941274,
+      "side": 131891
+    },
+    "parquet_trade_nosym_raw": {
+      "ts_ns": 8274562,
+      "price_ticks": 1650015,
+      "size": 1422909,
+      "side": 131382
+    },
+    "duckdb_bytes": 34091008,
+    "parquet_rows_per_s": 8897232.885237891,
+    "duckdb_rows_per_s": 16565929.067937348,
+    "duckdb_queries": {
+      "count_range": {
+        "median_ms": 1.0607510000681941
+      },
+      "scan_full": {
+        "median_ms": 1.3065099999494123
+      },
+      "scan_range": {
+        "median_ms": 4.4039480001174525
+      },
+      "vwap": {
+        "median_ms": 1.6153050000866642
+      },
+      "ohlcv_1m": {
+        "median_ms": 3.4618890001638647
+      },
+      "ohlcv_1s": {
+        "median_ms": 4.4764780000150495
+      },
+      "asof_full": {
+        "median_ms": 32.059305999837306
+      },
+      "asof_range": {
+        "median_ms": 12.726911000072505
+      }
+    },
+    "parquet_queries": {
+      "count_range": {
+        "median_ms": 10.672081999928196
+      },
+      "scan_full": {
+        "median_ms": 4.4383889999153325
+      },
+      "scan_range": {
+        "median_ms": 12.130453000054331
+      },
+      "vwap": {
+        "median_ms": 4.670382000085738
+      },
+      "ohlcv_1m": {
+        "median_ms": 9.656592999817804
+      },
+      "ohlcv_1s": {
+        "median_ms": 11.706392999940363
+      },
+      "asof_full": {
+        "median_ms": 45.37314399999559
+      },
+      "asof_range": {
+        "median_ms": 30.469673999959923
+      }
+    },
+    "parquet_write_samples_s": [
+      0.369688245999896,
+      0.3353081289999409,
+      0.33718348600018544,
+      0.3422238910000033,
+      0.3304881420001493
+    ],
+    "duckdb_load_samples_s": [
+      0.1894717039999705,
+      0.18109458200001427,
+      0.17821617000004153,
+      0.1779063789999782,
+      0.1811563969999952
+    ]
+  }
+}

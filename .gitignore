@@ -1,0 +1,11 @@
+/target
+/data
+/bench/run
+**/*.parquet
+**/*.duckdb
+.venv
+__pycache__
+*.pyc
+*.tchk.tmp
+catalog.json.tmp
+.DS_Store
