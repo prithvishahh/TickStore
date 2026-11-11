@@ -9,42 +9,42 @@
         {
           "bytes": 1641032,
           "bytes_per_value": 8.0,
-          "decode_ns": 1.0045922322051002,
-          "encode_ns": 1.1580371376060918,
+          "decode_ns": 1.0072588468719683,
+          "encode_ns": 1.271039199723101,
           "name": "raw_i64"
         },
         {
           "bytes": 276283,
           "bytes_per_value": 1.3468744058616773,
-          "decode_ns": 5.403887309936674,
-          "encode_ns": 4.192186380277777,
+          "decode_ns": 3.7939540484280623,
+          "encode_ns": 4.296120977531212,
           "name": "delta_bitpack"
         },
         {
           "bytes": 293339,
           "bytes_per_value": 1.4300220836644257,
-          "decode_ns": 5.485630993179901,
-          "encode_ns": 4.608734016155688,
+          "decode_ns": 3.812932349887144,
+          "encode_ns": 4.590618586352978,
           "name": "dod_bitpack"
         },
         {
           "bytes": 339116,
           "bytes_per_value": 1.653184093911636,
-          "decode_ns": 5.571030912255215,
-          "encode_ns": 5.153908028606389,
+          "decode_ns": 5.248926285410644,
+          "encode_ns": 4.220100522110477,
           "name": "delta_varint"
         },
         {
           "bytes": 280125,
           "bytes_per_value": 1.3656040832841774,
-          "decode_ns": 7.957690038951099,
-          "encode_ns": 9.741075128333877,
+          "decode_ns": 7.903953122181652,
+          "encode_ns": 9.747393103851723,
           "name": "gorilla_dod"
         },
         {
-          "bytes": 276283,
-          "bytes_per_value": 1.3468744058616773,
-          "codec": "delta_bitpack",
+          "bytes": 94141,
+          "bytes_per_value": 0.45893559662456307,
+          "codec": "delta_varint+zstd",
           "name": "selected"
         }
       ],
@@ -53,42 +53,42 @@
         {
           "bytes": 1641032,
           "bytes_per_value": 8.0,
-          "decode_ns": 1.0092137142968571,
-          "encode_ns": 1.1433683194477622,
+          "decode_ns": 0.9955930170770588,
+          "encode_ns": 1.1903143875317483,
           "name": "raw_u64"
         },
         {
           "bytes": 296522,
           "bytes_per_value": 1.4455391485357993,
-          "decode_ns": 4.619390724860941,
-          "encode_ns": 3.5510239897820397,
+          "decode_ns": 2.8893184288910883,
+          "encode_ns": 3.567018802802139,
           "name": "for_bitpack"
         },
         {
           "bytes": 311389,
           "bytes_per_value": 1.5180154926899658,
-          "decode_ns": 5.922941173602952,
-          "encode_ns": 4.615671114274432,
+          "decode_ns": 6.077068576359267,
+          "encode_ns": 4.532089563152943,
           "name": "varint"
         },
         {
           "bytes": 294034,
           "bytes_per_value": 1.4334101955354923,
-          "decode_ns": 4.327311106669462,
-          "encode_ns": 11.963715515602377,
+          "decode_ns": 4.366978827957042,
+          "encode_ns": 12.29667185039658,
           "name": "dictionary"
         },
         {
           "bytes": 2067556,
           "bytes_per_value": 10.079296442726285,
-          "decode_ns": 2.7927596780562474,
-          "encode_ns": 5.0033686119466285,
+          "decode_ns": 2.6322704249521034,
+          "encode_ns": 4.166368480322139,
           "name": "rle"
         },
         {
-          "bytes": 296522,
-          "bytes_per_value": 1.4455391485357993,
-          "codec": "for_bitpack",
+          "bytes": 181172,
+          "bytes_per_value": 0.8832100775609495,
+          "codec": "varint+zstd",
           "name": "selected"
         }
       ],
@@ -96,36 +96,36 @@
         {
           "bytes": 1641032,
           "bytes_per_value": 8.0,
-          "decode_ns": 1.0507193034626992,
-          "encode_ns": 1.8668155160898752,
+          "decode_ns": 1.6012216702660278,
+          "encode_ns": 1.8052055048286688,
           "name": "raw_i64"
         },
         {
           "bytes": 768605,
           "bytes_per_value": 3.7469348556274342,
-          "decode_ns": 7.861160538002915,
-          "encode_ns": 5.0305710065373495,
+          "decode_ns": 4.106796211164681,
+          "encode_ns": 5.090781898220144,
           "name": "delta_bitpack"
         },
         {
           "bytes": 790525,
           "bytes_per_value": 3.853794441546539,
-          "decode_ns": 7.997650259105246,
-          "encode_ns": 5.231425103227725,
+          "decode_ns": 4.011563455191611,
+          "encode_ns": 5.540723154697775,
           "name": "dod_bitpack"
         },
         {
           "bytes": 873296,
           "bytes_per_value": 4.257301502956676,
-          "decode_ns": 5.976395341468052,
-          "encode_ns": 6.101472731793164,
+          "decode_ns": 6.025847149842295,
+          "encode_ns": 5.540971778734358,
           "name": "delta_varint"
         },
         {
           "bytes": 948714,
           "bytes_per_value": 4.62496282826904,
-          "decode_ns": 10.328783350964516,
-          "encode_ns": 8.428154965899507,
+          "decode_ns": 10.283972524606467,
+          "encode_ns": 8.968936620370597,
           "name": "gorilla_dod"
         },
         {
@@ -139,40 +139,40 @@
     "csv": {
       "queries": {
         "asof_range": {
-          "first_ms": 214.320491,
-          "median_ms": 201.34903100000002
+          "first_ms": 210.807946,
+          "median_ms": 213.231595
         },
         "count_range": {
-          "first_ms": 72.293162,
-          "median_ms": 67.99090600000001
+          "first_ms": 69.48150799999999,
+          "median_ms": 66.99806799999999
         },
         "ohlcv_1m": {
-          "first_ms": 74.96839399999999,
-          "median_ms": 76.354232
+          "first_ms": 77.96186900000001,
+          "median_ms": 75.064178
         },
         "ohlcv_1s": {
-          "first_ms": 76.29992100000001,
-          "median_ms": 75.758437
+          "first_ms": 74.11188100000001,
+          "median_ms": 74.320071
         },
         "scan_range": {
-          "first_ms": 62.034618,
-          "median_ms": 60.58689
+          "first_ms": 66.947693,
+          "median_ms": 65.594768
         },
         "vwap": {
-          "first_ms": 72.82346000000001,
-          "median_ms": 73.170615
+          "first_ms": 74.641898,
+          "median_ms": 73.0862
         }
       },
       "quote_bytes": 102691119,
-      "rows_per_s": 4307291.242772376,
+      "rows_per_s": 4236335.594338128,
       "trade_bytes": 42264127,
-      "write_median_s": 0.696493418,
+      "write_median_s": 0.708159194,
       "write_samples_s": [
-        0.71168509,
-        0.693740996,
-        0.688755116,
-        0.702353698,
-        0.696493418
+        0.708159194,
+        0.699999642,
+        0.689021557,
+        0.712214927,
+        0.738051062
       ]
     },
     "dataset": {
@@ -181,7 +181,7 @@
       "focus_quote_rows": 410258,
       "focus_symbol": "AAPL",
       "focus_trade_rows": 205129,
-      "generate_s": 0.311832867,
+      "generate_s": 0.305042142,
       "interval_1m_ns": 60000000000,
       "interval_1s_ns": 1000000000,
       "quote_rows": 2000000,
@@ -249,70 +249,66 @@
       "vwap_volume": 45089076
     },
     "tickstore": {
-      "disk_bytes": 21140480,
-      "ingest_median_s": 0.697460935,
+      "disk_bytes": 18135736,
+      "ingest_median_s": 1.325314595,
       "ingest_samples_s": [
-        0.677147658,
-        0.680854093,
-        0.705983162,
-        0.699668865,
-        0.697460935
+        1.325314595,
+        1.31157959,
+        1.324669933,
+        1.334198492,
+        1.406887519
       ],
       "queries": {
         "asof_full": {
-          "first_ms": 28.379830000000002,
-          "median_ms": 22.794181000000002
+          "first_ms": 28.529652,
+          "median_ms": 21.335759
         },
         "asof_range": {
-          "first_ms": 2.8541450000000004,
-          "median_ms": 2.7505379999999997
+          "first_ms": 2.489464,
+          "median_ms": 2.325142
         },
         "count_full": {
-          "first_ms": 0.000807,
-          "median_ms": 0.000101
+          "first_ms": 0.67419,
+          "median_ms": 0.084866
         },
         "count_range": {
-          "first_ms": 0.462391,
-          "median_ms": 0.30548800000000004
+          "first_ms": 0.645877,
+          "median_ms": 0.268369
         },
         "ohlcv_1m": {
-          "first_ms": 5.318622,
-          "median_ms": 5.620894000000001
+          "first_ms": 3.084529,
+          "median_ms": 2.9098330000000003
         },
         "ohlcv_1s": {
-          "first_ms": 5.791295,
-          "median_ms": 5.845369000000001
+          "first_ms": 3.33045,
+          "median_ms": 3.279248
         },
         "scan_full": {
-          "first_ms": 6.052632,
-          "median_ms": 5.302946
+          "first_ms": 4.988198,
+          "median_ms": 3.7263729999999997
         },
         "scan_range": {
-          "first_ms": 0.8469909999999999,
-          "median_ms": 0.793177
+          "first_ms": 0.76619,
+          "median_ms": 0.665674
         },
         "vwap": {
-          "first_ms": 5.06485,
-          "median_ms": 4.93462
+          "first_ms": 1.323916,
+          "median_ms": 1.263133
         }
       },
-      "rows_per_s": 4301316.17335672,
+      "rows_per_s": 2263613.4932174347,
       "stats": {
-        "catalog_bytes": 33728,
+        "catalog_bytes": 34585,
         "chunk_rows": 16384,
         "columns": {
           "quote.ask": {
             "codecs": {
-              "delta_bitpack": {
-                "bytes": 1543114,
-                "chunks": 64
-              },
-              "gorilla_dod": {
-                "bytes": 1028213,
-                "chunks": 62
+              "delta_varint+zstd": {
+                "bytes": 1118923,
+                "chunks": 126
               }
             },
-            "payload_bytes": 2571327,
+            "payload_bytes": 1118923,
             "rows": 2000000
           },
           "quote.ask_size": {
@@ -327,16 +323,12 @@
           },
           "quote.bid": {
             "codecs": {
-              "delta_bitpack": {
-                "bytes": 1794621,
-                "chunks": 76
-              },
-              "gorilla_dod": {
-                "bytes": 920211,
-                "chunks": 50
+              "delta_varint+zstd": {
+                "bytes": 1161627,
+                "chunks": 126
               }
             },
-            "payload_bytes": 2714832,
+            "payload_bytes": 1161627,
             "rows": 2000000
           },
           "quote.bid_size": {
@@ -402,10 +394,10 @@
         },
         "price_scale": 10000,
         "quote_chunks": 126,
-        "quote_file_bytes": 14225534,
+        "quote_file_bytes": 11219925,
         "quote_rows": 2000000,
         "symbols": 8,
-        "total_bytes": 21140480,
+        "total_bytes": 18135736,
         "trade_chunks": 65,
         "trade_file_bytes": 6881218,
         "trade_rows": 1000000
@@ -432,73 +424,73 @@
       "side": 131382
     },
     "duckdb_bytes": 34091008,
-    "parquet_rows_per_s": 8897232.885237891,
-    "duckdb_rows_per_s": 16565929.067937348,
+    "parquet_rows_per_s": 8774267.730782496,
+    "duckdb_rows_per_s": 15946774.175417615,
     "duckdb_queries": {
       "count_range": {
-        "median_ms": 1.0607510000681941
+        "median_ms": 1.0256559999106685
       },
       "scan_full": {
-        "median_ms": 1.3065099999494123
+        "median_ms": 1.2967419997949037
       },
       "scan_range": {
-        "median_ms": 4.4039480001174525
+        "median_ms": 4.234220999933314
       },
       "vwap": {
-        "median_ms": 1.6153050000866642
+        "median_ms": 1.6417610004282324
       },
       "ohlcv_1m": {
-        "median_ms": 3.4618890001638647
+        "median_ms": 3.426421000767732
       },
       "ohlcv_1s": {
-        "median_ms": 4.4764780000150495
+        "median_ms": 4.51609100036876
       },
       "asof_full": {
-        "median_ms": 32.059305999837306
+        "median_ms": 29.375918000368983
       },
       "asof_range": {
-        "median_ms": 12.726911000072505
+        "median_ms": 13.686852999853727
       }
     },
     "parquet_queries": {
       "count_range": {
-        "median_ms": 10.672081999928196
+        "median_ms": 11.143153999910282
       },
       "scan_full": {
-        "median_ms": 4.4383889999153325
+        "median_ms": 4.432319999978063
       },
       "scan_range": {
-        "median_ms": 12.130453000054331
+        "median_ms": 13.480777000040689
       },
       "vwap": {
-        "median_ms": 4.670382000085738
+        "median_ms": 5.009143999814114
       },
       "ohlcv_1m": {
-        "median_ms": 9.656592999817804
+        "median_ms": 10.52547500057699
       },
       "ohlcv_1s": {
-        "median_ms": 11.706392999940363
+        "median_ms": 13.419937000435311
       },
       "asof_full": {
-        "median_ms": 45.37314399999559
+        "median_ms": 51.13138299930142
       },
       "asof_range": {
-        "median_ms": 30.469673999959923
+        "median_ms": 33.194801000718144
       }
     },
     "parquet_write_samples_s": [
-      0.369688245999896,
-      0.3353081289999409,
-      0.33718348600018544,
-      0.3422238910000033,
-      0.3304881420001493
+      0.4182823709988952,
+      0.35878523199971823,
+      0.3385865250011193,
+      0.34190887399927306,
+      0.3383021250001548
     ],
     "duckdb_load_samples_s": [
-      0.1894717039999705,
-      0.18109458200001427,
-      0.17821617000004153,
-      0.1779063789999782,
-      0.1811563969999952
+      0.20412095099982253,
+      0.18924627900014457,
+      0.1775558480003383,
+      0.18549523500041687,
+      0.18812582200007455
     ]
   }
 }

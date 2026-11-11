@@ -9,31 +9,31 @@
 <text x="618.4000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">VWAP</text>
 <text x="776.8000000000001" y="392" text-anchor="middle" font-family="ui-sans-serif, sans-serif" font-size="11" fill="#1d1a16">10m as-of</text>
 <rect x="79.8" y="350.3" width="26.0" height="23.7" fill="#0f6e56" rx="2"/>
-<rect x="238.2" y="306.7" width="26.0" height="67.3" fill="#0f6e56" rx="2"/>
-<rect x="396.6" y="215.5" width="26.0" height="158.5" fill="#0f6e56" rx="2"/>
-<rect x="555.0" y="223.3" width="26.0" height="150.7" fill="#0f6e56" rx="2"/>
-<rect x="713.4" y="250.0" width="26.0" height="124.0" fill="#0f6e56" rx="2"/>
+<rect x="238.2" y="310.0" width="26.0" height="64.0" fill="#0f6e56" rx="2"/>
+<rect x="396.6" y="239.2" width="26.0" height="134.8" fill="#0f6e56" rx="2"/>
+<rect x="555.0" y="281.5" width="26.0" height="92.5" fill="#0f6e56" rx="2"/>
+<rect x="713.4" y="254.5" width="26.0" height="119.5" fill="#0f6e56" rx="2"/>
 <rect x="64" y="432" width="12" height="12" fill="#0f6e56"/>
 <text x="82" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">TickStore</text>
-<rect x="111.5" y="103.5" width="26.0" height="270.5" fill="#8a8175" rx="2"/>
-<rect x="269.9" y="108.8" width="26.0" height="265.2" fill="#8a8175" rx="2"/>
-<rect x="428.3" y="98.6" width="26.0" height="275.4" fill="#8a8175" rx="2"/>
-<rect x="586.7" y="100.1" width="26.0" height="273.9" fill="#8a8175" rx="2"/>
+<rect x="111.5" y="105.3" width="26.0" height="268.7" fill="#8a8175" rx="2"/>
+<rect x="269.9" y="106.2" width="26.0" height="267.8" fill="#8a8175" rx="2"/>
+<rect x="428.3" y="100.7" width="26.0" height="273.3" fill="#8a8175" rx="2"/>
+<rect x="586.7" y="101.4" width="26.0" height="272.6" fill="#8a8175" rx="2"/>
 <rect x="745.1" y="53.9" width="26.0" height="320.1" fill="#8a8175" rx="2"/>
 <rect x="214" y="432" width="12" height="12" fill="#8a8175"/>
 <text x="232" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">CSV</text>
-<rect x="143.2" y="293.5" width="26.0" height="80.5" fill="#2c5aa0" rx="2"/>
-<rect x="301.6" y="228.5" width="26.0" height="145.5" fill="#2c5aa0" rx="2"/>
-<rect x="460.0" y="227.7" width="26.0" height="146.3" fill="#2c5aa0" rx="2"/>
-<rect x="618.4" y="274.3" width="26.0" height="99.7" fill="#2c5aa0" rx="2"/>
-<rect x="776.8" y="180.0" width="26.0" height="194.0" fill="#2c5aa0" rx="2"/>
+<rect x="143.2" y="290.8" width="26.0" height="83.2" fill="#2c5aa0" rx="2"/>
+<rect x="301.6" y="227.9" width="26.0" height="146.1" fill="#2c5aa0" rx="2"/>
+<rect x="460.0" y="225.0" width="26.0" height="149.0" fill="#2c5aa0" rx="2"/>
+<rect x="618.4" y="269.9" width="26.0" height="104.1" fill="#2c5aa0" rx="2"/>
+<rect x="776.8" y="175.8" width="26.0" height="198.2" fill="#2c5aa0" rx="2"/>
 <rect x="364" y="432" width="12" height="12" fill="#2c5aa0"/>
 <text x="382" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">DuckDB</text>
-<rect x="174.9" y="188.0" width="26.0" height="186.0" fill="#c47b2b" rx="2"/>
-<rect x="333.3" y="182.2" width="26.0" height="191.8" fill="#c47b2b" rx="2"/>
-<rect x="491.7" y="183.8" width="26.0" height="190.2" fill="#c47b2b" rx="2"/>
-<rect x="650.1" y="225.8" width="26.0" height="148.2" fill="#c47b2b" rx="2"/>
-<rect x="808.5" y="140.1" width="26.0" height="233.9" fill="#c47b2b" rx="2"/>
+<rect x="174.9" y="184.9" width="26.0" height="189.1" fill="#c47b2b" rx="2"/>
+<rect x="333.3" y="176.5" width="26.0" height="197.5" fill="#c47b2b" rx="2"/>
+<rect x="491.7" y="176.7" width="26.0" height="197.3" fill="#c47b2b" rx="2"/>
+<rect x="650.1" y="220.4" width="26.0" height="153.6" fill="#c47b2b" rx="2"/>
+<rect x="808.5" y="136.5" width="26.0" height="237.5" fill="#c47b2b" rx="2"/>
 <rect x="514" y="432" width="12" height="12" fill="#c47b2b"/>
 <text x="532" y="442" font-family="ui-sans-serif, sans-serif" font-size="12" fill="#1d1a16">Parquet</text>
 </svg>

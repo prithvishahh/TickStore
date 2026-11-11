@@ -355,28 +355,18 @@ def headline(engine: dict, extra: dict) -> str:
     pq_ts = extra["parquet_trade_nosym_columns"].get("ts_ns", 0) / trades
     q = engine["tickstore"]["queries"]
     dk = extra["duckdb_queries"]
-    bid = cols["quote.bid"]["codecs"]
-    gorilla_chunks = bid.get("gorilla_dod", {}).get("chunks", 0)
-    delta_chunks = bid.get("delta_bitpack", {}).get("chunks", 0)
-    bid_chunks = gorilla_chunks + delta_chunks
-    count_full = q["count_full"]["median_ms"]
     return (
-        f"**Headline.** A trade lands in {ts_trade:.2f} bytes and a quote in {ts_quote:.2f}, "
-        f"against {pq_trade:.2f} / {pq_quote:.2f} for Parquet zstd with no symbol column and "
-        f"{csv_trade:.1f} / {csv_quote:.1f} for CSV. The directory is {fmt_bytes(engine['tickstore']['disk_bytes'])} "
-        f"versus {fmt_bytes(total_pq)} of those Parquet files and {fmt_bytes(total_csv)} of CSV. "
-        f"Timestamps are the column that beats Parquet ({ts_b:.2f} B vs {pq_ts:.2f} B). "
-        f"Price and size are already bit-packed, and zstd still squeezes them a bit further, "
-        f"which is why an outer compressor is the next size lever rather than another integer code. "
-        f"Gorilla delta-of-delta loses to plain delta on trade clocks, and still wins "
-        f"{gorilla_chunks} of {bid_chunks} bid-price chunks where the mid drifts smoothly. "
-        f"Ingest is {engine['tickstore']['rows_per_s']/1e6:.2f}M rows/s, behind Parquet and DuckDB, "
-        f"because each column is encoded five ways and one result is kept. "
-        f"A full-symbol count that covers every chunk is answered from the catalog "
-        f"({count_full*1000:.1f} µs). The 10-minute as-of join is {q['asof_range']['median_ms']:.1f} ms "
-        f"versus DuckDB's {dk['asof_range']['median_ms']:.1f} ms. Session VWAP is the other way around: "
-        f"{q['vwap']['median_ms']:.1f} ms versus DuckDB's {dk['vwap']['median_ms']:.1f} ms, "
-        f"which is a vectorized aggregate against a scalar bit unpack."
+        f"**Headline.** The directory is {fmt_bytes(engine['tickstore']['disk_bytes'])} versus "
+        f"{fmt_bytes(total_pq)} of Parquet zstd (no symbol column) and {fmt_bytes(total_csv)} of CSV. "
+        f"Quotes are {ts_quote:.2f} B/row versus Parquet's {pq_quote:.2f}, because the selector wraps those "
+        f"columns in a zstd frame. Trade timestamps, prices, and sizes stay bare so VWAP and OHLCV do not "
+        f"inflate them on every query ({ts_trade:.2f} B/trade, next to Parquet's {pq_trade:.2f}; "
+        f"timestamps alone are {ts_b:.2f} B versus Parquet's {pq_ts:.2f}). "
+        f"Session VWAP is {q['vwap']['median_ms']:.2f} ms versus DuckDB's {dk['vwap']['median_ms']:.2f} ms. "
+        f"1-second bars are {q['ohlcv_1s']['median_ms']:.2f} ms versus {dk['ohlcv_1s']['median_ms']:.2f} ms, "
+        f"and 1-minute bars are {q['ohlcv_1m']['median_ms']:.2f} ms versus {dk['ohlcv_1m']['median_ms']:.2f} ms. "
+        f"Ingest is {engine['tickstore']['rows_per_s']/1e6:.2f}M rows/s. That is slower than milestone 1, "
+        f"because each append is also appended to the write-ahead log."
     )
 
 
